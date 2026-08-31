@@ -1,14 +1,3 @@
----
-AIGC:
-    Label: "1"
-    ContentProducer: 001191440300708461136T1XGW3
-    ProduceID: b8f4477dc8ee22a528114e118343f32c_74ea2447a54d11f1b8ae525400287e28
-    ReservedCode1: T8hTU2RXW6L3jL9HYsn4UlJ+xEyszIsU2wn7Uv8YGutW2uQngUdC7rSjPc8oKBDiSp8FMdIfR5VgvKebVq8agi6zqZ+mh9S2XCg0e+9PwaXpjkaGaIz5D4oJrBZB5rlYGJQguduXHv3Mh8/XFT9p+zhd1m0pYvcz67V28rWkUasaQc/MiWJ27664peg=
-    ContentPropagator: 001191440300708461136T1XGW3
-    PropagateID: b8f4477dc8ee22a528114e118343f32c_74ea2447a54d11f1b8ae525400287e28
-    ReservedCode2: T8hTU2RXW6L3jL9HYsn4UlJ+xEyszIsU2wn7Uv8YGutW2uQngUdC7rSjPc8oKBDiSp8FMdIfR5VgvKebVq8agi6zqZ+mh9S2XCg0e+9PwaXpjkaGaIz5D4oJrBZB5rlYGJQguduXHv3Mh8/XFT9p+zhd1m0pYvcz67V28rWkUasaQc/MiWJ27664peg=
----
-
 # beian-mcp-server
 
 中国备案信息查询 MCP 服务端。通过 [MCP](https://modelcontextprotocol.io) 协议提供工具接口，支持工信部 ICP 备案查询，可同时运行于 **HTTP（Streamable HTTP）** 与 **stdio** 两种传输模式。
@@ -148,10 +137,10 @@ pnpm test:watch
 
 查询中国大陆工信部 ICP 备案信息。
 
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-| --- | --- | --- | --- | --- |
-| `search` | string | 是 | - | 查询关键词，如 `baidu.com`、`北京百度网讯科技有限公司` |
-| `type` | enum | 否 | `web` | 服务类型：`web`（网站）、`app`（移动应用）、`microapp`（小程序）、`fastapp`（快应用） |
+| 参数     | 类型   | 必填 | 默认值 | 说明                                                                                  |
+|----------|--------|------|--------|---------------------------------------------------------------------------------------|
+| `search` | string | 是   | -      | 查询关键词，如 `baidu.com`、`北京百度网讯科技有限公司`                                |
+| `type`   | enum   | 否   | `web`  | 服务类型：`web`（网站）、`app`（移动应用）、`microapp`（小程序）、`fastapp`（快应用） |
 
 返回结果为 JSON 文本，包含备案主体、许可证号、网站信息等。
 
@@ -162,5 +151,5 @@ pnpm test:watch
 
 ## 许可
 
-ISC
-*（内容由AI生成，仅供参考）*
+CC BY-NC-SA 4.0
+
