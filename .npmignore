@@ -1,0 +1,12 @@
+src/
+scripts/
+tests/
+*.test.ts
+*.spec.ts
+vitest.config.ts
+tsconfig.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+.idea/
+*.log
+node_modules/

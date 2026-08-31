@@ -1,0 +1,73 @@
+{
+  "name": "beian-mcp-server",
+  "version": "1.0.0",
+  "description": "中国备案信息查询 MCP 服务端（ICP 备案查询），支持 HTTP（Streamable HTTP）与 stdio 双模式。",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "node scripts/build.mjs",
+    "build:raw": "node scripts/build.mjs --raw",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepack": "pnpm build"
+  },
+  "keywords": [
+    "mcp",
+    "icp",
+    "备案",
+    "beian",
+    "model-context-protocol",
+    "server",
+    "查询"
+  ],
+  "author": "",
+  "license": "CC-BY-NC-SA-4.0",
+  "type": "module",
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/express": "^2.0.0",
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/fake-useragent": "^1.0.0",
+    "@types/node": "^26.4.0",
+    "axios": "^1.20.0",
+    "axios-cookiejar-support": "^7.0.0",
+    "cors": "^2.8.6",
+    "esbuild": "^0.28.2",
+    "express": "^5.2.1",
+    "fake-useragent": "^1.0.1",
+    "javascript-obfuscator": "^5.6.0",
+    "tough-cookie": "^6.0.2",
+    "tsc-alias": "^1.9.2",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.11",
+    "zod": "^4.5.4"
+  },
+  "dependencies": {
+    "sharp": "^0.35.4"
+  },
+  "main": "dist/index.cjs",
+  "bin": {
+    "beian-mcp-server": "dist/index.cjs"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.cjs",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "packageManager": "pnpm@11.22.0"
+}

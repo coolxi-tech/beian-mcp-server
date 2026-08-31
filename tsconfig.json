@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    /* 基础编译环境配置 */
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    "types": ["node"],
+
+    /* 构建与输出路径 */
+    "rootDir": "./src", /* TS 源码根目录 */
+    "outDir": "./dist",
+
+    /* 路径别名配置（TS7 已移除 baseUrl，paths 必须使用相对路径） */
+    "paths": {
+      "@/*": ["./src/*"]                    /* 将 @_ 映射到 src/_ */
+    },
+
+    /* 严格类型检查 */
+    "strict": true,                      /* 开启所有严格类型检查选项（包括 noImplicitAny, strictNullChecks 等） */
+    "esModuleInterop": true,             /* 增强与 CommonJS 模块的兼容性 */
+    "skipLibCheck": true,                /* 跳过第三方声明文件（.d.ts）的类型检查，提升编译速度 */
+    "forceConsistentCasingInFileNames": true /* 强制文件名大小写一致 */
+  },
+  "include": ["src/**/*",
+    "src/tests/**/*"
+  ],               /* 包含 src 目录下的所有 TS 文件 */
+  "exclude": ["node_modules", "dist"]    /* 排除构建目录和依赖包 */
+}
