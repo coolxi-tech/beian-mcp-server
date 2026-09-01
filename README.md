@@ -29,19 +29,22 @@ beian_mcp/
 ├── src/
 │   ├── index.ts            # 入口：注册工具、启动 HTTP / stdio 服务
 │   ├── module/
-│   │   ├── icp.ts          # 工信部 ICP 备案查询核心业务
-│   │   └── police.ts       # 公安备案查询（未启用，占位）
+│   │   └── icp.ts          # 工信部 ICP 备案查询核心业务（含滑块验证码识别流程）
 │   ├── api/
-│   │   └── police.ts       # 公安备案 API（未启用，占位）
+│   │   └── icp.ts          # ICP 查询上游网页接口封装
 │   ├── utils/
-│   │   └── captcha.ts      # 滑块验证码识别（基于 sharp）
+│   │   ├── captcha.ts      # 滑块验证码识别（colorBlockSlider，基于 sharp）
+│   │   ├── crypto.ts       # 加解密工具
+│   │   └── internet.ts     # 网络请求工具
+│   ├── tests/
+│   │   └── module/
+│   │       └── icp.test.ts # ICP 流程测试用例
 │   └── types/
 │       └── icp.ts          # 备案查询类型定义与 ServiceType 枚举
 ├── scripts/
 │   ├── build.mjs           # 构建脚本：清空 dist → esbuild 打包 → 混淆
 │   └── obfuscate.mjs       # 混淆脚本（支持 .cjs）
 ├── dist/                   # 构建产物（index.cjs）
-├── test/                   # 测试用例
 ├── package.json
 └── tsconfig.json
 ```
@@ -81,7 +84,7 @@ node dist/index.cjs
 $env:PORT = 8080; node dist/index.cjs
 ```
 
-启动后端点地址：`http://127.0.0.1:3000/mcp`，将其配置到 MCP 客户端（如 Claude Desktop、Cline 等）的远程服务器即可。
+启动后端点地址：`http://127.0.0.1:3000/mcp`，按下方「MCP 客户端配置」的 HTTP 示例接入。
 
 ### stdio 模式
 
@@ -89,7 +92,31 @@ $env:PORT = 8080; node dist/index.cjs
 $env:MCP_TRANSPORT = "stdio"; node dist/index.cjs
 ```
 
-或将以下配置写入 MCP 客户端：
+按下方「MCP 客户端配置」的 stdio 示例接入。
+
+## MCP 客户端配置
+
+将下方 JSON 片段合并到你使用的 MCP 客户端（Claude Desktop / Cline / Cursor 等）的 `mcpServers` 配置中。各客户端字段定义一致，仅配置文件位置不同（如 Claude Desktop 的 `claude_desktop_config.json`、Cline 的扩展设置）。
+
+### HTTP 模式（远程接入）
+
+先在本地启动服务（`node dist/index.cjs`），再配置：
+
+```json
+{
+  "mcpServers": {
+    "beian-mcp-server": {
+      "type": "http",
+      "url": "http://127.0.0.1:3000/mcp",
+      "headers": {}
+    }
+  }
+}
+```
+
+### stdio 模式（本地进程）
+
+使用构建产物 `dist/index.cjs`：
 
 ```json
 {
@@ -102,6 +129,24 @@ $env:MCP_TRANSPORT = "stdio"; node dist/index.cjs
   }
 }
 ```
+
+开发调试时使用 `tsx` 直跑源码：
+
+```json
+{
+  "mcpServers": {
+    "beian-mcp-server": {
+      "command": "pnpm",
+      "args": ["exec", "tsx", "src/index.ts"],
+      "env": { "MCP_TRANSPORT": "stdio" }
+    }
+  }
+}
+```
+
+> 注意：stdio 模式必须在 `env` 中设置 `MCP_TRANSPORT=stdio`，否则服务会以默认的 HTTP 模式启动并监听端口，客户端将无法通信。
+>
+> 接入成功后，客户端 `tools/list` 应能列出 `query-icp` 工具，即可开始查询备案信息。
 
 ## 构建
 
@@ -146,8 +191,8 @@ pnpm test:watch
 
 ## 已知限制
 
-- **公安备案查询未启用**：`query-police` 工具因公安备案查询需验证码识别、暂无法本地化，当前已注释禁用（`src/module/police.ts`、`src/api/police.ts` 为占位空文件），待验证码识别方案落地后再启用。
-- ICP 查询依赖第三方网页接口，若上游接口变更或触发风控，查询可能失败并返回 `[ICP 查询失败]` 错误信息。
+- **公安备案查询暂不支持**：`query-police` 工具当前未实现（公安备案查询的验证码识别本地化方案尚未落地）。
+- ICP 查询依赖第三方网页接口，若上游接口变更或触发WAF风控，查询可能失败并返回 `[ICP 查询失败]` 错误信息。
 
 ## 许可
 
