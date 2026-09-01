@@ -10,7 +10,6 @@ import { z } from "zod";
 
 // 导入 module 层导出的核心业务函数（NodeNext 模式下必须保留 .js 后缀）
 import { handleIcpQuery } from "@/module/icp.js";
-// import { handlePoliceQuery } from "./module/police.js";
 // 复用服务类型常量，保证 schema 与 ServiceType 枚举值同源
 import { ICP_SERVICE_TYPES } from "@/types/icp.js";
 
@@ -62,47 +61,6 @@ function registerTools(server: McpServer) {
             }
         }
     );
-
-    // ==========================================
-    // Tool 2: 全国公安机关联网备案查询
-    // 说明：公安备案查询需要验证码识别，当前无法本地化，暂不可用，故注释掉。
-    // 待验证码识别方案落地后再启用。
-    // ==========================================
-    // server.registerTool(
-    //     "query-police",
-    //     {
-    //         description: "查询全国公安机关联网备案信息",
-    //         inputSchema: z.object({
-    //             domain: z
-    //                 .string()
-    //                 .min(1, "查询域名或名称不能为空")
-    //                 .describe("需要查询的域名或主体名称（如：baidu.com）"),
-    //         }),
-    //     },
-    //     async ({ domain }) => {
-    //         try {
-    //             const result = await handlePoliceQuery(domain);
-    //             return {
-    //                 content: [
-    //                     {
-    //                         type: "text",
-    //                         text: JSON.stringify(result, null, 2),
-    //                     },
-    //                 ],
-    //             };
-    //         } catch (error: any) {
-    //             return {
-    //                 isError: true,
-    //                 content: [
-    //                     {
-    //                         type: "text",
-    //                         text: `[公安备案查询失败] ${error?.message || "未知错误"}`,
-    //                     },
-    //                 ],
-    //             };
-    //         }
-    //     }
-    // );
 }
 
 /**
