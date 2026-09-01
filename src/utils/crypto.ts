@@ -10,13 +10,3 @@ export function generateUuid(name?: string): string {
     return name ? `${name}-${id}` : id;
 }
 
-export function encryptPointJson(content: string, secretKey: string): string {
-    const contentBuffer = Buffer.from(content, "latin1");
-    const keyBuffer = Buffer.from(secretKey, "latin1");
-
-    const cipher = crypto.createCipheriv("aes-128-ecb", keyBuffer, null);
-    let encrypted = cipher.update(contentBuffer);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-
-    return encrypted.toString("base64");
-}
