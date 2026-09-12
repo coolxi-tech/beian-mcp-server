@@ -1,0 +1,69 @@
+# beian-mcp-server 自动发布工作流
+# 触发方式：
+#   - 推送 v* 标签（推荐）：git tag v1.0.0 && git push origin v1.0.0
+#   - 手动触发（Actions 页面点击 Run workflow）
+#
+# 前置要求：
+#   - GitHub 仓库 Settings -> Secrets and variables -> Actions 添加 NPM_TOKEN
+#   - NPM_TOKEN 来自 npm 官网账户 -> Access Tokens（publish 权限，非 automation 类型也可用）
+
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - name: 校验标签版本与 package.json 一致
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "标签版本 $TAG_VERSION 与 package.json 版本 $PKG_VERSION 不一致，终止发布"
+            exit 1
+          fi
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 运行测试
+        run: pnpm test
+
+      - name: 构建混淆产物
+        run: pnpm build
+
+      - name: 上传构建产物（可留档/排查）
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+      - name: 发布到 npm
+        # --no-git-checks：git 仓库非干净状态（如 CI checkout）下跳过校验
+        # prepack 钩子会自动再跑一次 build，与上方 pnpm build 幂等
+        run: npm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
