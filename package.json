@@ -64,7 +64,6 @@
   },
   "files": [
     "dist",
-    "AntiCAP/AntiCAP/AntiCAP-Models",
     "README.md",
     "LICENSE"
   ],
