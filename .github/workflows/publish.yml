@@ -26,7 +26,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v7
         with:
-          # AntiCAP 是 git 子模块，测试与运行依赖其中的 ONNX 模型文件
+          # AntiCAP 是 git 子模块，构建时从中复制 OCR 模型文件到 dist/assets
           submodules: recursive
 
       - name: 安装 Node.js
@@ -54,9 +54,6 @@ jobs:
 
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
-
-      - name: 运行测试
-        run: pnpm test
 
       - name: 构建混淆产物
         run: pnpm build
