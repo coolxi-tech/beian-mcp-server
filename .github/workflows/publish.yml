@@ -29,7 +29,8 @@ jobs:
       - name: 安装 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # pnpm 11 依赖 node:sqlite，要求 Node.js >= 22.13
+          node-version: 22
           registry-url: https://registry.npmjs.org/
 
       - name: 安装 pnpm
