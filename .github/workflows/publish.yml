@@ -4,9 +4,10 @@
 #     此时校验标签版本与 package.json 一致后才发布
 #   - 手动触发（Actions 页面点击 Run workflow）：跳过版本校验，按 package.json 版本直接发布
 #
-# 前置要求：
-#   - GitHub 仓库 Settings -> Secrets and variables -> Actions 添加 NPM_TOKEN
-#   - NPM_TOKEN 来自 npm 官网账户 -> Access Tokens（publish 权限，非 automation 类型也可用）
+# 前置要求（Trusted Publishing / OIDC，无需 NPM_TOKEN）：
+#   - npmjs.com 上为 beian-mcp-server 登记 Trusted Publisher：
+#     用户/组织 coolxi-tech、仓库 beian-mcp-server、工作流文件 publish.yml
+#   - Allowed actions 需勾选允许 npm publish 直发（2026-09-03 之后的新配置默认仅允许 stage）
 
 name: Publish to npm
 
@@ -20,6 +21,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
+      # Trusted Publishing (OIDC) 必需：允许生成 OIDC 令牌
+      id-token: write
       contents: read
 
     steps:
@@ -66,8 +69,7 @@ jobs:
           if-no-files-found: error
 
       - name: 发布到 npm
+        # Trusted Publishing (OIDC)：npm CLI 自动用 GitHub OIDC 换取短时发布令牌，无需 NPM_TOKEN
         # --no-git-checks：git 仓库非干净状态（如 CI checkout）下跳过校验
         # prepack 钩子会自动再跑一次 build，与上方 pnpm build 幂等
         run: npm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
