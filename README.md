@@ -1,12 +1,14 @@
 # beian-mcp-server
 
-中国备案信息查询 MCP 服务端。通过 [MCP](https://modelcontextprotocol.io) 协议提供工具接口，支持工信部 ICP 备案查询，可同时运行于 **HTTP（Streamable HTTP）** 与 **stdio** 两种传输模式。
+中国备案信息查询 MCP 服务端。通过 [MCP](https://modelcontextprotocol.io) 协议提供工具接口，支持工信部 ICP 备案查询与公安部网安备案查询，可同时运行于 **HTTP（Streamable HTTP）** 与 **stdio** 两种传输模式。
 
 ## 功能特性
 
 - **ICP 备案查询**：通过 MCP 工具 `query-icp` 查询中国大陆工信部 ICP 备案信息，支持按域名、单位名称、APP 名称等关键词检索，覆盖网站 / 移动应用 / 小程序 / 快应用等服务类型。
+- **网安备案查询**：通过 MCP 工具 `query-police` 查询中国大陆公安联网备案（全国互联网安全管理服务平台）信息，支持按域名、单位名称检索，返回网安备案号、主办单位、关联域名、审核时间等。
+- **本地验证码识别**：网安备案「点选文字」验证码通过 ONNX 模型本地推理（YOLO26n 文字检测 + Dddd OCR，基于 onnxruntime-node），AES 加密校验后查询，无需打码平台；ICP 滑块验证码基于 sharp 纯算法识别。
 - **双传输模式**：通过环境变量 `MCP_TRANSPORT` 一键切换 HTTP 与 stdio 模式，适配不同的 MCP 客户端接入方式。
-- **单文件构建 + 混淆**：`esbuild` 打包为单一 `dist/index.cjs`（CJS 格式），支持 `javascript-obfuscator` 混淆，便于分发部署。
+- **单文件构建 + 混淆**：`esbuild` 打包为单一 `dist/index.cjs`（CJS 格式），模型资产统一复制到 `dist/assets`，支持 `javascript-obfuscator` 混淆，便于分发部署。
 - **无状态请求处理**：HTTP 模式下每次请求通过 `McpServerFactory` 创建独立 server 实例，规避单例 `connect` 冲突，并兼容 2025 时代客户端的无状态回退。
 
 ## 技术栈
@@ -17,7 +19,9 @@
 | MCP | `@modelcontextprotocol/server` / `express` / `node` |
 | Web 框架 | Express 5 |
 | 网络请求 | axios + axios-cookiejar-support + tough-cookie |
-| 图像处理 | sharp（用于滑块验证码识别，ICP 查询流程） |
+| 模型推理 | onnxruntime-node（网安备案点选验证码：YOLO26n 检测 + Dddd OCR） |
+| 图像处理 | sharp（ICP 滑块验证码识别；网安备案验证码图像预处理） |
+| 加解密 | node:crypto（AES-128-ECB，网安备案 pointJson / captchaVerification 加密） |
 | 校验 | zod v4 |
 | 构建 | esbuild（单文件打包）+ tsc-alias（路径别名）+ javascript-obfuscator（混淆） |
 | 测试 | vitest |
@@ -29,22 +33,30 @@ beian_mcp/
 ├── src/
 │   ├── index.ts            # 入口：注册工具、启动 HTTP / stdio 服务
 │   ├── module/
-│   │   └── icp.ts          # 工信部 ICP 备案查询核心业务（含滑块验证码识别流程）
+│   │   ├── icp.ts          # 工信部 ICP 备案查询核心业务（含滑块验证码流程）
+│   │   └── police.ts       # 公安网安备案查询核心业务（含点选验证码流程，带重试）
 │   ├── api/
-│   │   └── icp.ts          # ICP 查询上游网页接口封装
+│   │   ├── icp.ts          # ICP 查询上游网页接口封装
+│   │   └── police.ts       # 网安备案 cyber_portal 接口封装（含 timestamp 请求头）
 │   ├── utils/
 │   │   ├── captcha.ts      # 滑块验证码识别（colorBlockSlider，基于 sharp）
-│   │   ├── crypto.ts       # 加解密工具
+│   │   ├── police_captcha.ts # 点选文字验证码识别（YOLO 检测 + Dddd OCR，基于 onnxruntime）
+│   │   ├── crypto.ts       # 加解密工具（含 AES-128-ECB，网安备案加密）
 │   │   └── internet.ts     # 网络请求工具
+│   ├── assets/
+│   │   └── captcha_detection.onnx # 文字检测模型（YOLO26n，构建后复制到 dist/assets）
 │   ├── tests/
 │   │   └── module/
-│   │       └── icp.test.ts # ICP 流程测试用例
+│   │       ├── icp.test.ts    # ICP 流程测试用例
+│   │       └── police.test.ts # 网安备案流程测试用例
 │   └── types/
-│       └── icp.ts          # 备案查询类型定义与 ServiceType 枚举
+│       ├── icp.ts          # ICP 备案查询类型定义与 ServiceType 枚举
+│       └── police.ts       # 网安备案类型定义（验证码/查询响应/点选坐标）
+├── AntiCAP/AntiCAP/AntiCAP-Models/ # OCR 模型源（[Dddd]-OCR.onnx + [Dddd]-CharSets.txt，构建后复制到 dist/assets）
 ├── scripts/
-│   ├── build.mjs           # 构建脚本：清空 dist → esbuild 打包 → 混淆
+│   ├── build.mjs           # 构建脚本：清空 dist → esbuild 打包 → 复制模型资产 → 混淆
 │   └── obfuscate.mjs       # 混淆脚本（支持 .cjs）
-├── dist/                   # 构建产物（index.cjs）
+├── dist/                   # 构建产物（index.cjs + assets/ 模型文件）
 ├── package.json
 └── tsconfig.json
 ```
@@ -53,7 +65,8 @@ beian_mcp/
 
 - Node.js ≥ 18（推荐 20+）
 - [pnpm](https://pnpm.io) ≥ 11（项目通过 `devEngines` 锁定，`npx` 可能存在兼容问题，请使用 `pnpm`）
-- sharp 为原生模块，运行时需保留在 `node_modules` 中（构建时已通过 `--external:sharp` 排除）
+- sharp / onnxruntime-node 为原生模块，运行时需保留在 `node_modules` 中（构建时已通过 `--external` 排除）
+- 网安备案验证码识别需要模型文件：`src/assets/captcha_detection.onnx`（文字检测）与 `AntiCAP/AntiCAP/AntiCAP-Models/` 下的 `[Dddd]-OCR.onnx`、`[Dddd]-CharSets.txt`（OCR，开发模式直接引用该目录），构建后统一复制到 `dist/assets`
 
 ## 快速开始
 
@@ -146,7 +159,7 @@ $env:MCP_TRANSPORT = "stdio"; node dist/index.cjs
 
 > 注意：stdio 模式必须在 `env` 中设置 `MCP_TRANSPORT=stdio`，否则服务会以默认的 HTTP 模式启动并监听端口，客户端将无法通信。
 >
-> 接入成功后，客户端 `tools/list` 应能列出 `query-icp` 工具，即可开始查询备案信息。
+> 接入成功后，客户端 `tools/list` 应能列出 `query-icp` 与 `query-police` 工具，即可开始查询备案信息。
 
 ## 构建
 
@@ -161,10 +174,13 @@ pnpm build:raw
 构建链路说明：
 
 1. `scripts/build.mjs` 清空 `dist` 目录；
-2. esbuild 打包为 CJS 单文件 `dist/index.cjs`（`--format=cjs`、`--external:sharp` 保留原生模块、`--alias:@=./src` 解析路径别名）；
-3. `scripts/obfuscate.mjs` 对产物执行混淆（`--raw` 时跳过此步）。
+2. esbuild 打包为 CJS 单文件 `dist/index.cjs`（`--format=cjs`、`--external:sharp/onnxruntime-node` 保留原生模块、`--alias:@=./src` 解析路径别名）；
+3. 复制模型资产到 `dist/assets`（`src/assets` 检测模型 + AntiCAP 目录下 2 个 OCR 单模型文件）；
+4. `scripts/obfuscate.mjs` 对产物执行混淆（`--raw` 时跳过此步）。
 
 > 说明：产物使用 `.cjs` 扩展名输出，以规避 `package.json` 中 `"type": "module"` 导致的 ESM 解析问题（ESM 单文件下 express 依赖的动态 `require("tty")` 不被支持）。
+>
+> 模型路径解析：产物运行时从 `dist/assets`（与 `index.cjs` 同目录）加载模型；开发模式（tsx/vitest）直接引用 `src/assets` 与 `AntiCAP/AntiCAP/AntiCAP-Models/`。
 
 ## 测试
 
@@ -189,10 +205,43 @@ pnpm test:watch
 
 返回结果为 JSON 文本，包含备案主体、许可证号、网站信息等。
 
+### query-police
+
+查询中国大陆公安联网备案信息（全国互联网安全管理服务平台）。
+
+| 参数     | 类型   | 必填 | 说明                                                                     |
+|----------|--------|------|--------------------------------------------------------------------------|
+| `search` | string | 是   | 查询内容，如 `baidu.com`、`北京百度网讯科技有限公司` |
+
+返回结果为 JSON 文本，包含网安备案号（`polnm`）、主办单位（`unitnm`）、单位性质（`unittype`）、关联域名（`webSiteStr`）、审核时间（`audittime`）、网安支队（`department`）等，示例：
+
+```json
+{
+  "success": true,
+  "code": 200,
+  "msg": "成功",
+  "data": {
+    "webnm": "百度",
+    "maindm": "baidu.com",
+    "webSiteStr": ["zhidao.baidu.com", "baike.baidu.com"],
+    "audittime": "2025-04-14",
+    "unittype": "企业单位",
+    "unitnm": "北京百度网讯科技有限公司",
+    "webtype": "交互式",
+    "polnm": "京公网安备11010802050023号",
+    "department": "北京市公安局海淀分局网安支队"
+  }
+}
+```
+
 ## 已知限制
 
-- **公安备案查询暂不支持**：`query-police` 工具当前未实现（公安备案查询的验证码识别本地化方案尚未落地）。
+- **网安备案查询成功率不是 100%**：查询依赖「点选文字」验证码本地识别，主要缺陷是识别模型（YOLO26n 检测 + Dddd OCR）精准度不高，个别验证码会识别失败。工具已内置 4 次整流程重试（每次自动换新验证码）；若仍失败，可再次调用重试几次，返回 `[网安备案查询失败]` 错误信息。
 - ICP 查询依赖第三方网页接口，若上游接口变更或触发WAF风控，查询可能失败并返回 `[ICP 查询失败]` 错误信息。
+
+## 致谢
+
+- 感谢 [AntiCAP](https://github.com/81NewArk/AntiCAP) 项目——本服务的网安备案「点选文字」验证码识别直接引用了 AntiCAP-Models 下的 `[Dddd]-OCR.onnx` 与 `[Dddd]-CharSets.txt`（Dddd OCR 模型与字符集），检测流程亦按 AntiCAP 的 `detection.py` / `ocr.py` 实现移植为 Node.js，省去了自建 OCR 模型的成本。
 
 ## 许可
 
