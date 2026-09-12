@@ -10,6 +10,7 @@ import { z } from "zod";
 
 // 导入 module 层导出的核心业务函数（NodeNext 模式下必须保留 .js 后缀）
 import { handleIcpQuery } from "@/module/icp.js";
+import { handlePoliceQuery } from "@/module/police.js";
 // 复用服务类型常量，保证 schema 与 ServiceType 枚举值同源
 import { ICP_SERVICE_TYPES } from "@/types/icp.js";
 
@@ -55,6 +56,45 @@ function registerTools(server: McpServer) {
                         {
                             type: "text",
                             text: `[ICP 查询失败] ${error?.message || "未知错误"}`,
+                        },
+                    ],
+                };
+            }
+        }
+    );
+
+    // ==========================================
+    // Tool 2: 公安网安备案查询
+    // ==========================================
+    server.registerTool(
+        "query-police",
+        {
+            description: "查询中国大陆公安联网备案信息（全国互联网安全管理服务平台，支持域名、单位名称）",
+            inputSchema: z.object({
+                search: z
+                    .string()
+                    .min(1, "查询关键词不能为空")
+                    .describe("查询内容（如：baidu.com 或 北京百度网讯科技有限公司）"),
+            }),
+        },
+        async ({ search }) => {
+            try {
+                const result = await handlePoliceQuery({ search });
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify(result, null, 2),
+                        },
+                    ],
+                };
+            } catch (error: any) {
+                return {
+                    isError: true,
+                    content: [
+                        {
+                            type: "text",
+                            text: `[网安备案查询失败] ${error?.message || "未知错误"}`,
                         },
                     ],
                 };

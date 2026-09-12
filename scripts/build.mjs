@@ -1,4 +1,4 @@
-import { rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { rmSync, existsSync, readFileSync, writeFileSync, cpSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +14,7 @@ if (existsSync(distDir)) {
 }
 
 // 2. esbuild 打包单文件：CJS 格式（express 的 debug 依赖有动态 require，
-//    ESM 单文件不支持），sharp 为原生模块必须 external
+//    ESM 单文件不支持），sharp / onnxruntime-node 为原生模块必须 external
 const result = await build({
   entryPoints: [join(root, "src/index.ts")],
   bundle: true,
@@ -23,13 +23,33 @@ const result = await build({
   target: "node20",
   outfile: join(distDir, "index.cjs"),
   alias: { "@": join(root, "src") },
-  external: ["sharp"],
+  external: ["sharp", "onnxruntime-node"],
   logLevel: "warning",
   metafile: false,
 });
 console.log(`[build] 已生成 dist/index.cjs (${(result.metafile ? 0 : 0) || "见上方"})`);
 
-// 3. 混淆（--raw 时跳过）
+// 3. 复制模型资产到 dist 同目录（单文件脚本运行时按产物目录解析 assets）
+const assetsDir = join(root, "src", "assets");
+if (existsSync(assetsDir)) {
+  cpSync(assetsDir, join(distDir, "assets"), { recursive: true });
+  console.log("[build] 已复制 src/assets -> dist/assets");
+}
+
+// 3.1 复制 AntiCAP 目录下的 2 个 OCR 单模型文件到 dist/assets
+//     （代码内 resolveAntiCapModel 引用 AntiCAP 目录，构建产物统一放入 dist/assets 与检测模型并列）
+const antiCapModelsDir = join(root, "AntiCAP", "AntiCAP", "AntiCAP-Models");
+for (const modelFile of ["[Dddd]-OCR.onnx", "[Dddd]-CharSets.txt"]) {
+  const modelSrc = join(antiCapModelsDir, modelFile);
+  if (existsSync(modelSrc)) {
+    cpSync(modelSrc, join(distDir, "assets", modelFile));
+    console.log(`[build] 已复制 AntiCAP 模型 ${modelFile} -> dist/assets/`);
+  } else {
+    console.warn(`[build] 警告: AntiCAP 模型缺失 ${modelSrc}`);
+  }
+}
+
+// 4. 混淆（--raw 时跳过）
 if (!raw) {
   const obf = spawnSync(
     process.execPath,
@@ -44,7 +64,7 @@ if (!raw) {
   console.log("[build] --raw 模式：跳过混淆");
 }
 
-// 4. 为 bin 入口补 shebang（混淆/打包后行首若无则补上）
+// 5. 为 bin 入口补 shebang（混淆/打包后行首若无则补上）
 const entry = join(distDir, "index.cjs");
 const entryCode = readFileSync(entry, "utf-8");
 if (!entryCode.startsWith("#!")) {

@@ -10,3 +10,20 @@ export function generateUuid(name?: string): string {
     return name ? `${name}-${id}` : id;
 }
 
+/**
+ * AES-128-ECB + PKCS7 加密后 base64
+ * 等价 PHP: base64_encode(openssl_encrypt($content, 'aes-128-ecb', $secretKey, OPENSSL_RAW_DATA))
+ * 用于网安备案的 pointJson / captchaVerification 加密
+ */
+export function aesEcbEncryptBase64(content: string, secretKey: string): string {
+    const cipher = crypto.createCipheriv(
+        "aes-128-ecb",
+        Buffer.from(secretKey, "latin1"),
+        null
+    );
+    return Buffer.concat([
+        cipher.update(Buffer.from(content, "latin1")),
+        cipher.final(),
+    ]).toString("base64");
+}
+

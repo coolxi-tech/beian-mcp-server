@@ -47,6 +47,7 @@
     "zod": "^4.5.4"
   },
   "dependencies": {
+    "onnxruntime-node": "^1.29.0",
     "sharp": "^0.35.4"
   },
   "main": "dist/index.cjs",
@@ -63,6 +64,7 @@
   },
   "files": [
     "dist",
+    "AntiCAP/AntiCAP/AntiCAP-Models",
     "README.md",
     "LICENSE"
   ],
