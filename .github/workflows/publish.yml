@@ -1,7 +1,8 @@
 # beian-mcp-server 自动发布工作流
 # 触发方式：
 #   - 推送 v* 标签（推荐）：git tag v1.0.0 && git push origin v1.0.0
-#   - 手动触发（Actions 页面点击 Run workflow）
+#     此时校验标签版本与 package.json 一致后才发布
+#   - 手动触发（Actions 页面点击 Run workflow）：跳过版本校验，按 package.json 版本直接发布
 #
 # 前置要求：
 #   - GitHub 仓库 Settings -> Secrets and variables -> Actions 添加 NPM_TOKEN
@@ -37,6 +38,8 @@ jobs:
           version: 11.22.0
 
       - name: 校验标签版本与 package.json 一致
+        # 仅标签推送时校验（手动触发时 GITHUB_REF_NAME 是分支名，跳过校验，按 package.json 版本发布）
+        if: github.ref_type == 'tag'
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           PKG_VERSION=$(node -p "require('./package.json').version")
