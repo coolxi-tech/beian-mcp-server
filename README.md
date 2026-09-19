@@ -1,219 +1,58 @@
 # beian-mcp-server
 
-中国备案信息查询 MCP 服务端。通过 [MCP](https://modelcontextprotocol.io) 协议提供工具接口，支持工信部 ICP 备案查询与公安部网安备案查询，可同时运行于 **HTTP（Streamable HTTP）** 与 **stdio** 两种传输模式。
+**给你的 AI 助手一副查备案的手。**
 
-## 功能特性
+两个工具：工信部 **ICP 备案**、公安部**联网备案**。接进 Claude Desktop / Cursor / Cline / 任何支持 MCP 的客户端之后，你可以直接问"这个域名背后是哪家公司""它的备案号是什么、审核到什么时候"，AI 会自己去查，不用你打开官网过滑块。
 
-- **ICP 备案查询**：通过 MCP 工具 `query-icp` 查询中国大陆工信部 ICP 备案信息，支持按域名、单位名称、APP 名称等关键词检索，覆盖网站 / 移动应用 / 小程序 / 快应用等服务类型。
-- **网安备案查询**：通过 MCP 工具 `query-police` 查询中国大陆公安联网备案（全国互联网安全管理服务平台）信息，支持按域名、单位名称检索，返回网安备案号、主办单位、关联域名、审核时间等。
-- **本地验证码识别**：网安备案「点选文字」验证码通过 ONNX 模型本地推理（YOLO26n 文字检测 + Dddd OCR，基于 onnxruntime-node），AES 加密校验后查询，无需打码平台；ICP 滑块验证码基于 sharp 纯算法识别。
-- **双传输模式**：通过环境变量 `MCP_TRANSPORT` 一键切换 HTTP 与 stdio 模式，适配不同的 MCP 客户端接入方式。
-- **单文件构建 + 混淆**：`esbuild` 打包为单一 `dist/index.cjs`（CJS 格式），模型资产统一复制到 `dist/assets`，支持 `javascript-obfuscator` 混淆，便于分发部署。
-- **无状态请求处理**：HTTP 模式下每次请求通过 `McpServerFactory` 创建独立 server 实例，规避单例 `connect` 冲突，并兼容 2025 时代客户端的无状态回退。
+不需要 API Key，不需要注册账号，不需要打码平台——验证码识别全部在本地完成。
 
-## 技术栈
+> *An MCP server exposing two tools that let AI clients look up mainland-China ICP filings (MIIT) and public-security network filings (MPS). Captcha solving runs locally via ONNX; no API key, no third-party captcha service.*
 
-| 类别 | 技术 |
-| --- | --- |
-| 语言/运行时 | TypeScript（NodeNext）、Node.js |
-| MCP | `@modelcontextprotocol/server` / `express` / `node` |
-| Web 框架 | Express 5 |
-| 网络请求 | axios + axios-cookiejar-support + tough-cookie |
-| 模型推理 | onnxruntime-node（网安备案点选验证码：YOLO26n 检测 + Dddd OCR） |
-| 图像处理 | sharp（ICP 滑块验证码识别；网安备案验证码图像预处理） |
-| 加解密 | node:crypto（AES-128-ECB，网安备案 pointJson / captchaVerification 加密） |
-| 校验 | zod v4 |
-| 构建 | esbuild（单文件打包）+ tsc-alias（路径别名）+ javascript-obfuscator（混淆） |
-| 测试 | vitest |
+> ⚠️ **本项目仅供学习与技术研究用途**，非官方产品，不面向生产环境。完整条款见文末 [免责声明](#免责声明)。
 
-## 目录结构
+---
 
-```
-beian_mcp/
-├── src/
-│   ├── index.ts            # 入口：注册工具、启动 HTTP / stdio 服务
-│   ├── module/
-│   │   ├── icp.ts          # 工信部 ICP 备案查询核心业务（含滑块验证码流程）
-│   │   └── police.ts       # 公安网安备案查询核心业务（含点选验证码流程，带重试）
-│   ├── api/
-│   │   ├── icp.ts          # ICP 查询上游网页接口封装
-│   │   └── police.ts       # 网安备案 cyber_portal 接口封装（含 timestamp 请求头）
-│   ├── utils/
-│   │   ├── captcha.ts      # 滑块验证码识别（colorBlockSlider，基于 sharp）
-│   │   ├── police_captcha.ts # 点选文字验证码识别（YOLO 检测 + Dddd OCR，基于 onnxruntime）
-│   │   ├── crypto.ts       # 加解密工具（含 AES-128-ECB，网安备案加密）
-│   │   └── internet.ts     # 网络请求工具
-│   ├── assets/
-│   │   └── captcha_detection.onnx # 文字检测模型（YOLO26n，构建后复制到 dist/assets）
-│   ├── tests/
-│   │   └── module/
-│   │       ├── icp.test.ts    # ICP 流程测试用例
-│   │       └── police.test.ts # 网安备案流程测试用例
-│   └── types/
-│       ├── icp.ts          # ICP 备案查询类型定义与 ServiceType 枚举
-│       └── police.ts       # 网安备案类型定义（验证码/查询响应/点选坐标）
-├── AntiCAP/AntiCAP/AntiCAP-Models/ # OCR 模型源（[Dddd]-OCR.onnx + [Dddd]-CharSets.txt，构建后复制到 dist/assets）
-├── scripts/
-│   ├── build.mjs           # 构建脚本：清空 dist → esbuild 打包 → 复制模型资产 → 混淆
-│   └── obfuscate.mjs       # 混淆脚本（支持 .cjs）
-├── dist/                   # 构建产物（index.cjs + assets/ 模型文件）
-├── package.json
-└── tsconfig.json
+## 30 秒接入
+
+把下面这段合并进你的 MCP 客户端配置，重启客户端：
+
+```json
+{
+  "mcpServers": {
+    "beian": {
+      "command": "npx",
+      "args": ["-y", "@coolxitech/beian-mcp-server"],
+      "env": { "MCP_TRANSPORT": "stdio" }
+    }
+  }
+}
 ```
 
-## 环境要求
+然后直接问它：
 
-- Node.js ≥ 18（推荐 20+）
-- [pnpm](https://pnpm.io) ≥ 11（项目通过 `devEngines` 锁定，`npx` 可能存在兼容问题，请使用 `pnpm`）
-- sharp / onnxruntime-node 为原生模块，运行时需保留在 `node_modules` 中（构建时已通过 `--external` 排除）
-- 网安备案验证码识别需要模型文件：`src/assets/captcha_detection.onnx`（文字检测）与 `AntiCAP/AntiCAP/AntiCAP-Models/` 下的 `[Dddd]-OCR.onnx`、`[Dddd]-CharSets.txt`（OCR，开发模式直接引用该目录），构建后统一复制到 `dist/assets`
-
-## 快速开始
-
-```bash
-# 1. 安装依赖
-pnpm install
-
-# 2. 开发模式（tsx 热运行，HTTP 模式）
-pnpm dev
+```
+查一下 baidu.com 的 ICP 备案主体是谁？
+查 湘ICP备2021018214号 这个主体名下还有哪些网站
 ```
 
-## 运行
+> **首次安装会拉约 66 MB**，其中 54 MB 是本地 OCR 模型。装完即可离线使用，只有查询请求本身需要联网。
+> 只想先试试 ICP 查询、不需要公安备案？删掉 `dist/assets/[Dddd]-OCR.onnx` 能省 54 MB（此时 `query-police` 会失败，`query-icp` 不受影响）。
 
-服务启动模式由环境变量 `MCP_TRANSPORT` 控制：
+---
 
-| `MCP_TRANSPORT` | 模式 | 说明 |
+## 它提供什么
+
+| 工具 | 用途 | 输入 |
 | --- | --- | --- |
-| `http`（默认） | HTTP | 监听 `PORT`（默认 3000），端点 `POST /mcp` |
-| `stdio` | stdio | 通过 stdin/stdout 与 MCP 客户端通信 |
+| `query-icp` | 工信部 ICP 备案（主体、许可证号、名下服务） | `search`（必填）、`type`（可选，默认 `web`） |
+| `query-police` | 公安联网备案（网安备案号、主办单位、审核时间） | `search`（必填） |
 
-### HTTP 模式（默认）
+`search` 可以填域名、公司全称，也可以填 APP 名称——和官方查询页一致。
+`type` 取值：`web` 网站 / `app` 移动应用 / `microapp` 小程序 / `fastapp` 快应用。
 
-```bash
-# 使用默认端口 3000
-node dist/index.cjs
+### 返回长这样
 
-# 自定义端口
-$env:PORT = 8080; node dist/index.cjs
-```
-
-启动后端点地址：`http://127.0.0.1:3000/mcp`，按下方「MCP 客户端配置」的 HTTP 示例接入。
-
-### stdio 模式
-
-```bash
-$env:MCP_TRANSPORT = "stdio"; node dist/index.cjs
-```
-
-按下方「MCP 客户端配置」的 stdio 示例接入。
-
-## MCP 客户端配置
-
-将下方 JSON 片段合并到你使用的 MCP 客户端（Claude Desktop / Cline / Cursor 等）的 `mcpServers` 配置中。各客户端字段定义一致，仅配置文件位置不同（如 Claude Desktop 的 `claude_desktop_config.json`、Cline 的扩展设置）。
-
-### HTTP 模式（远程接入）
-
-先在本地启动服务（`node dist/index.cjs`），再配置：
-
-```json
-{
-  "mcpServers": {
-    "beian-mcp-server": {
-      "type": "http",
-      "url": "http://127.0.0.1:3000/mcp",
-      "headers": {}
-    }
-  }
-}
-```
-
-### stdio 模式（本地进程）
-
-使用构建产物 `dist/index.cjs`：
-
-```json
-{
-  "mcpServers": {
-    "beian-mcp-server": {
-      "command": "node",
-      "args": ["E:\\Project\\Web\\beian_mcp\\dist\\index.cjs"],
-      "env": { "MCP_TRANSPORT": "stdio" }
-    }
-  }
-}
-```
-
-开发调试时使用 `tsx` 直跑源码：
-
-```json
-{
-  "mcpServers": {
-    "beian-mcp-server": {
-      "command": "pnpm",
-      "args": ["exec", "tsx", "src/index.ts"],
-      "env": { "MCP_TRANSPORT": "stdio" }
-    }
-  }
-}
-```
-
-> 注意：stdio 模式必须在 `env` 中设置 `MCP_TRANSPORT=stdio`，否则服务会以默认的 HTTP 模式启动并监听端口，客户端将无法通信。
->
-> 接入成功后，客户端 `tools/list` 应能列出 `query-icp` 与 `query-police` 工具，即可开始查询备案信息。
-
-## 构建
-
-```bash
-# 完整构建：单文件打包 + 混淆（产出 dist/index.cjs，混淆后约 5MB）
-pnpm build
-
-# 仅单文件打包、不做混淆（便于排查产物问题）
-pnpm build:raw
-```
-
-构建链路说明：
-
-1. `scripts/build.mjs` 清空 `dist` 目录；
-2. esbuild 打包为 CJS 单文件 `dist/index.cjs`（`--format=cjs`、`--external:sharp/onnxruntime-node` 保留原生模块、`--alias:@=./src` 解析路径别名）；
-3. 复制模型资产到 `dist/assets`（`src/assets` 检测模型 + AntiCAP 目录下 2 个 OCR 单模型文件）；
-4. `scripts/obfuscate.mjs` 对产物执行混淆（`--raw` 时跳过此步）。
-
-> 说明：产物使用 `.cjs` 扩展名输出，以规避 `package.json` 中 `"type": "module"` 导致的 ESM 解析问题（ESM 单文件下 express 依赖的动态 `require("tty")` 不被支持）。
->
-> 模型路径解析：产物运行时从 `dist/assets`（与 `index.cjs` 同目录）加载模型；开发模式（tsx/vitest）直接引用 `src/assets` 与 `AntiCAP/AntiCAP/AntiCAP-Models/`。
-
-## 测试
-
-```bash
-# 运行一次测试
-pnpm test
-
-# 监听模式
-pnpm test:watch
-```
-
-## MCP 工具
-
-### query-icp
-
-查询中国大陆工信部 ICP 备案信息。
-
-| 参数     | 类型   | 必填 | 默认值 | 说明                                                                                  |
-|----------|--------|------|--------|---------------------------------------------------------------------------------------|
-| `search` | string | 是   | -      | 查询关键词，如 `baidu.com`、`北京百度网讯科技有限公司`                                |
-| `type`   | enum   | 否   | `web`  | 服务类型：`web`（网站）、`app`（移动应用）、`microapp`（小程序）、`fastapp`（快应用） |
-
-返回结果为 JSON 文本，包含备案主体、许可证号、网站信息等。
-
-### query-police
-
-查询中国大陆公安联网备案信息（全国互联网安全管理服务平台）。
-
-| 参数     | 类型   | 必填 | 说明                                                                     |
-|----------|--------|------|--------------------------------------------------------------------------|
-| `search` | string | 是   | 查询内容，如 `baidu.com`、`北京百度网讯科技有限公司` |
-
-返回结果为 JSON 文本，包含网安备案号（`polnm`）、主办单位（`unitnm`）、单位性质（`unittype`）、关联域名（`webSiteStr`）、审核时间（`audittime`）、网安支队（`department`）等，示例：
+`query-police` 的返回（示例：baidu.com）：
 
 ```json
 {
@@ -234,16 +73,127 @@ pnpm test:watch
 }
 ```
 
-## 已知限制
+`query-icp` 返回 JSON 文本，包含备案主体、许可证号、网站信息。字段随上游接口结构变化，所以保留原始结构、不做美化——方便你自己的程序解析。
 
-- **网安备案查询成功率不是 100%**：查询依赖「点选文字」验证码本地识别，主要缺陷是识别模型（YOLO26n 检测 + Dddd OCR）精准度不高，个别验证码会识别失败。工具已内置 4 次整流程重试（每次自动换新验证码）；若仍失败，可再次调用重试几次，返回 `[网安备案查询失败]` 错误信息。
-- ICP 查询依赖第三方网页接口，若上游接口变更或触发WAF风控，查询可能失败并返回 `[ICP 查询失败]` 错误信息。
+---
+
+## 什么时候会用到它
+
+- **上线前自检**：新站页脚要挂 ICP 号和公安备案号，一次查询拿到准确写法和归属单位，不用翻邮件。
+- **核验合作方**：对方给你一个官网，你想知道域名背后的公司主体、是不是真的存在、名下还有什么。
+- **写报告 / 写合同**：让 AI 在起草时直接引用查询结果，而不是凭记忆编一个备案号。
+- **批量核验**：HTTP 模式下用脚本把一份域名列表跑一遍（注意别把它当爬虫使，见下方"使用边界"）。
+
+---
+
+## 换一种方式跑
+
+`npx` 那条路适合个人本机使用。下面是另外两种。
+
+### stdio · 用本仓库构建产物
+
+适合你不希望每次启动都走 npx 的情况：
+
+```json
+{
+  "mcpServers": {
+    "beian": {
+      "command": "node",
+      "args": ["D:\\path\\to\\beian_mcp\\dist\\index.cjs"],
+      "env": { "MCP_TRANSPORT": "stdio" }
+    }
+  }
+}
+```
+
+### HTTP · 团队共用一个服务
+
+```bash
+node dist/index.cjs                 # 默认端口 3000
+PORT=8080 node dist/index.cjs       # 自定义端口
+```
+
+端点：`POST http://127.0.0.1:3000/mcp`
+
+```json
+{
+  "mcpServers": {
+    "beian": {
+      "type": "http",
+      "url": "http://127.0.0.1:3000/mcp",
+      "headers": {}
+    }
+  }
+}
+```
+
+> ⚠️ **HTTP 模式默认只监听 `127.0.0.1`**（框架自带 DNS rebinding 保护），本服务自身**没有任何鉴权**。要给同事或外网用，请自己放一层反向代理 + 鉴权，或者干脆别公网暴露。
+
+### 客户端接不上？
+
+先确认两件事：
+
+1. stdio 接入时 `env` 里必须有 `MCP_TRANSPORT=stdio`，否则它会以默认的 HTTP 模式启动去监听端口，客户端连不上；
+2. 接好后在客户端里看 `tools/list` 是否列出 `query-icp` / `query-police`。列出来了就说明链路是通的，剩下的问题都在上游。
+
+---
+
+## 常见问题
+
+**Q：公安备案查询失败了怎么办？**
+正常现象之一。它依赖"点选文字"验证码，本地识别不可能 100% 准。工具已内置 4 次整流程重试（每次自动换新验证码）；仍失败会返回 `[网安备案查询失败]`，**再调一次通常就过**。ICP 查询用的是滑块验证码纯算法识别，成功率高得多。
+
+**Q：要连外部的模型服务或打码平台吗？**
+不用。检测模型（`captcha_detection.onnx`）和 OCR 模型（`[Dddd]-OCR.onnx`）都在包内，`onnxruntime-node` 本地推理。
+
+**Q：上游会不会变？**
+会。本服务走的是官方查询页所用的接口（`hlwicpfwc.miit.gov.cn`、`beian.mps.gov.cn/cyber_portal`），不是公开稳定 API。接口改版或触发 WAF 风控时会返回 `[ICP 查询失败]` / `[网安备案查询失败]`。遇到这种情况请先[提 issue](https://github.com/coolxi-tech/beian-mcp-server/issues)。
+
+**Q：查询需要登录吗？会不会留下我的痕迹？**
+不需要登录。请求以普通浏览器身份直接发往官方查询接口，与你自己在电脑上打开官网查询没有本质区别。
+
+**Q：Node 版本要求？**
+`>= 18.17`，推荐 20+ 或 24 LTS。`sharp` 与 `onnxruntime-node` 是原生模块，安装时会取对应平台的预编译包；装不上通常是这两个。
+
+---
+
+## 使用边界（请读完这一段）
+
+- 查询到的都是**依法公开**的备案信息，但请不要拿它做批量采集、用户画像、营销数据库。
+- 不要用它给灰产做域名真实性背书。
+- 请控制调用频率——上游是政府公共服务，把人家打出流量问题对谁都没好处。本工具的合理形态是"按需单条查询"，不是"爬站引擎"。
+
+## 许可与商用提醒
+
+- 本仓库以 **CC BY-NC-SA 4.0** 发布：**允许署名、非商业性、相同方式共享**。也就是说，把它放进你的**商业产品或对外收费服务**需要另行获得授权。
+- **模型与工具链的许可。** 验证码 OCR 模型来自 [AntiCAP](https://github.com/81NewArk/AntiCAP)（MIT）。文字检测模型（`captcha_detection.onnx`）的**标注数据与训练均在本仓库作者自行完成**，但训练与导出使用了 [Ultralytics](https://github.com/ultralytics/ultralytics)（AGPL-3.0）的 `yolo26n` **官方预训练权重**及其工具链，模型文件的内嵌元数据据此标注为 AGPL-3.0。对授权范围敏感的使用者（尤其是准备商用/托管的人）请在集成前自行确认这一项；作者不对其"AGPL 是否及于模型权重"的主张是否可执行作法律评价。
+- 一句话：**个人用、学习用、写进自己的开源项目里，随便；要拿它挣钱，先来谈。**
+
+## 免责声明
+
+**本项目仅供学习与技术研究用途。** 它是为了演示"如何用 MCP 协议把一类公开信息的查询接进 AI 客户端"而写的开源练手作品，不是一个数据服务，也不是任何意义上的产品交付，**不应被用于生产环境或作为任何商业、法律判断的唯一依据**。
+
+具体而言：
+
+- **与官方无关。** 本项目与工业和信息化部、公安部及任何备案管理机构均无关联，未获得其授权、认可或背书。
+- **不保证准确。** 查询结果是对上游接口返回内容的原样转录，本工具不做校验、不做补全、不做解释；上游数据本身可能滞后、缺失或变更。**任何需要对外引用的备案号、主体名称、审核时间，请以官方查询页面实时结果为准。**
+- **不保证可用。** 软件按"现状（AS IS）"提供，作者不提供任何明示或默示的保证，包括但不限于适销性、特定用途适用性、无错误、以及查询成功率。公安备案查询受验证码识别精度限制，天然不是 100% 成功。
+- **风险自担。** 使用者应自行确认其使用行为符合所在地法律法规以及上游服务的相关规定（见上方"使用边界"一节）。因使用、无法使用或误用本工具所产生的任何直接或间接后果，由使用者本人承担，作者不承担任何责任。
+- **不提供专业意见。** 本项目输出的是查询结果，不构成法律、合规、审计或尽调意见。
+
+> *This project is provided for learning and research purposes only. It is not an official product and is not affiliated with, authorized, or endorsed by any government authority. Data are relayed verbatim from upstream endpoints and may be inaccurate, incomplete, or outdated — always verify against the official filing system. The software is provided "AS IS" without warranty of any kind; the author accepts no liability for any use or misuse.*
+
+## 开发与构建
+
+想跑源码、改逻辑、自己出包，看 **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**（环境要求、目录结构、构建链路、测试、混淆发布）。
+
+```bash
+pnpm install
+pnpm dev      # tsx 热运行，HTTP 模式
+pnpm build    # 单文件 + 混淆 → dist/index.cjs
+pnpm test     # vitest
+```
 
 ## 致谢
 
-- 感谢 [AntiCAP](https://github.com/81NewArk/AntiCAP) 项目——本服务的网安备案「点选文字」验证码识别直接引用了 AntiCAP-Models 下的 `[Dddd]-OCR.onnx` 与 `[Dddd]-CharSets.txt`（Dddd OCR 模型与字符集），检测流程亦按 AntiCAP 的 `detection.py` / `ocr.py` 实现移植为 Node.js，省去了自建 OCR 模型的成本。
-
-## 许可
-
-CC BY-NC-SA 4.0
-
+验证码识别环节直接受益于 [AntiCAP](https://github.com/81NewArk/AntiCAP)：本服务的 OCR 模型（`[Dddd]-OCR.onnx` / `[Dddd]-CharSets.txt`）取自该项目，点选检测与 OCR 流程也按其 `detection.py` / `ocr.py` 移植为 Node.js 实现。
